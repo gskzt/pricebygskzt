@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - GTA 5 Видео</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <h2>Вход в админ панель</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Логин</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Пароль</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Войти</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="adminPanel" class="admin-panel" style="display: none;">
+        <header class="admin-header">
+            <h1>Админ панель</h1>
+            <div class="admin-actions">
+                <button class="btn btn-secondary" id="changeCredentialsBtn">Изменить логин/пароль</button>
+                <button class="btn btn-secondary" id="logoutBtn">Выйти</button>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            <section class="credentials-section" id="credentialsSection" style="display: none;">
+                <h2>Изменение учетных данных</h2>
+                <form id="credentialsForm">
+                    <div class="form-group">
+                        <label for="newUsername">Новый логин</label>
+                        <input type="text" id="newUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Новый пароль</label>
+                        <input type="password" id="newPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Подтвердите пароль</label>
+                        <input type="password" id="confirmPassword" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                        <button type="button" class="btn btn-secondary" id="cancelCredentialsBtn">Отмена</button>
+                    </div>
+                    <div id="credentialsError" class="error-message"></div>
+                    <div id="credentialsSuccess" class="success-message"></div>
+                </form>
+            </section>
+
+            <section class="cards-section">
+                <div class="section-header">
+                    <h2>Управление карточками</h2>
+                    <button class="btn btn-primary" id="addCardBtn">Добавить карточку</button>
+                </div>
+
+                <div id="cardsList" class="cards-list">
+                    <!-- Карточки будут добавлены через JavaScript -->
+                </div>
+            </section>
+        </main>
+
+        <footer class="admin-footer">
+            <button class="btn btn-secondary" onclick="window.location.href='index.html'">Вернуться на сайт</button>
+        </footer>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
+
+
