@@ -1,5 +1,5 @@
 // ============================================
-// КАРУСЕЛЬ КАРТОЧЕК - ПРАЙС-ЛИСТ (МАКСИМАЛЬНО ОПТИМИЗИРОВАНО)
+// КАРУСЕЛЬ КАРТОЧЕК - МАКСИМАЛЬНО ОПТИМИЗИРОВАНО
 // ============================================
 
 // Данные карточек (5 штук)
@@ -51,32 +51,45 @@ let titleElement = null;
 const CARD_WIDTH = 320;
 const CARD_GAP = 32;
 const CARD_WIDTH_MOBILE = 280;
-const CARD_GAP_MOBILE = 24;
+const CARD_GAP_MOBILE = 20; // Уменьшенный gap для мобильных
 
 // Кэш для оптимизации
 let cachedDimensions = null;
 let cachedIsMobile = null;
 let cachedTitleCenter = null;
+let cachedContainerWidth = null;
 
 // Флаги для оптимизации
 let isUpdating = false;
 let rafId = null;
 
-// Оптимизированное определение мобильного устройства
+// Определение типа устройства
 function isMobile() {
     if (cachedIsMobile === null) {
-        cachedIsMobile = window.innerWidth <= 768 || 
-                        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const width = window.innerWidth;
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isSmallScreen = width <= 768;
+        const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(userAgent);
+        const isTablet = /iPad|Android(?!.*Mobile)|Tablet/i.test(userAgent) && width > 768 && width <= 1024;
+        cachedIsMobile = isSmallScreen || (isMobileUA && !isTablet);
     }
     return cachedIsMobile;
+}
+
+function isTablet() {
+    const width = window.innerWidth;
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return (width > 768 && width <= 1024) || /iPad|Android(?!.*Mobile)|Tablet/i.test(userAgent);
 }
 
 // Получение размеров
 function getCardDimensions() {
     if (!cachedDimensions) {
-        cachedDimensions = isMobile() 
-            ? { width: CARD_WIDTH_MOBILE, gap: CARD_GAP_MOBILE }
-            : { width: CARD_WIDTH, gap: CARD_GAP };
+        if (isMobile()) {
+            cachedDimensions = { width: CARD_WIDTH_MOBILE, gap: CARD_GAP_MOBILE };
+        } else {
+            cachedDimensions = { width: CARD_WIDTH, gap: CARD_GAP };
+        }
     }
     return cachedDimensions;
 }
@@ -86,6 +99,7 @@ function resetCache() {
     cachedDimensions = null;
     cachedIsMobile = null;
     cachedTitleCenter = null;
+    cachedContainerWidth = null;
 }
 
 // Оптимизированное обновление позиции карусели
@@ -104,23 +118,40 @@ function updateCarousel() {
         const cardWidth = dimensions.width;
         const cardGap = dimensions.gap;
         
+        // Кэшируем ширину контейнера для мобильных
+        if (cachedContainerWidth === null || isMobile()) {
+            cachedContainerWidth = carouselContainer.offsetWidth;
+        }
+        
         const containerRect = carouselContainer.getBoundingClientRect();
         const containerLeftOffset = containerRect.left;
         
         const activeCardCenterPosition = currentIndex * (cardWidth + cardGap) + (cardWidth / 2);
         
-        // Кэшируем центр заголовка
-        if (cachedTitleCenter === null && titleElement) {
-            const titleRect = titleElement.getBoundingClientRect();
-            cachedTitleCenter = titleRect.left + (titleRect.width / 2);
+        // На мобильных центрируем относительно экрана, на десктопе - относительно заголовка
+        let targetCenter;
+        
+        if (isMobile()) {
+            // На мобильных центрируем относительно центра экрана
+            targetCenter = window.innerWidth / 2;
+        } else {
+            // На десктопе центрируем относительно заголовка
+            if (cachedTitleCenter === null && titleElement) {
+                const titleRect = titleElement.getBoundingClientRect();
+                cachedTitleCenter = titleRect.left + (titleRect.width / 2);
+            }
+            targetCenter = cachedTitleCenter || (window.innerWidth / 2);
         }
         
-        const titleCenter = cachedTitleCenter || (window.innerWidth / 2);
-        const offset = titleCenter - containerLeftOffset - activeCardCenterPosition;
+        const offset = targetCenter - containerLeftOffset - activeCardCenterPosition;
         
-        // Используем transform для GPU-ускорения
+        // Применяем transform с GPU-ускорением
         carouselTrack.style.transform = `translate3d(${offset}px, 0, 0)`;
-        carouselTrack.style.willChange = 'transform';
+        
+        // Убираем will-change после анимации для оптимизации
+        if (!carouselTrack.style.willChange) {
+            carouselTrack.style.willChange = 'transform';
+        }
         
         isUpdating = false;
         rafId = null;
@@ -135,15 +166,15 @@ function updateActiveCard() {
     
     // Батчинг обновлений DOM
     const activeIndex = currentIndex;
-    cardElements.forEach((card, index) => {
-        if (index === activeIndex) {
-            if (!card.classList.contains('active')) {
-                card.classList.add('active');
+    for (let i = 0; i < cardElements.length; i++) {
+        if (i === activeIndex) {
+            if (!cardElements[i].classList.contains('active')) {
+                cardElements[i].classList.add('active');
             }
         } else {
-            card.classList.remove('active');
+            cardElements[i].classList.remove('active');
         }
-    });
+    }
 }
 
 // Создание элемента карточки
@@ -192,7 +223,7 @@ function initCarousel() {
     track.className = 'carousel-track';
     carouselTrack = track;
     
-    // Создаем DocumentFragment для оптимизации
+    // Используем DocumentFragment для оптимизации
     const fragment = document.createDocumentFragment();
     cardElements = [];
     
@@ -215,7 +246,7 @@ function initCarousel() {
 function nextCard() {
     if (cards.length === 0 || isUpdating) return;
     currentIndex = (currentIndex + 1) % cards.length;
-    cachedTitleCenter = null; // Сбрасываем кэш при изменении
+    cachedTitleCenter = null;
     updateCarousel();
 }
 
@@ -223,7 +254,7 @@ function nextCard() {
 function prevCard() {
     if (cards.length === 0 || isUpdating) return;
     currentIndex = (currentIndex - 1 + cards.length) % cards.length;
-    cachedTitleCenter = null; // Сбрасываем кэш при изменении
+    cachedTitleCenter = null;
     updateCarousel();
 }
 
@@ -236,13 +267,14 @@ function openWhatsApp(title, price) {
 }
 
 // ============================================
-// УЛУЧШЕННАЯ АНИМАЦИЯ ЗАГОЛОВКА ПРИ СКРОЛЛЕ
+// ОПТИМИЗИРОВАННАЯ АНИМАЦИЯ ЗАГОЛОВКА
 // ============================================
 let scrollRafId = null;
 let lastScrollY = 0;
+let isScrolling = false;
 
 function updateTitleAnimation() {
-    if (!sectionTitle || !pricingSection) return;
+    if (!sectionTitle || !pricingSection || isScrolling) return;
     
     if (scrollRafId) {
         cancelAnimationFrame(scrollRafId);
@@ -252,7 +284,7 @@ function updateTitleAnimation() {
         const currentScrollY = window.scrollY || window.pageYOffset;
         
         // Оптимизация: обновляем только при значительном изменении
-        if (Math.abs(currentScrollY - lastScrollY) < 5) {
+        if (Math.abs(currentScrollY - lastScrollY) < 3) {
             scrollRafId = null;
             return;
         }
@@ -271,16 +303,24 @@ function updateTitleAnimation() {
             progress = Math.max(0, Math.min(1, visibleHeight / (windowHeight + sectionHeight)));
         }
         
-        // Плавное движение заголовка с эффектом параллакса
-        const maxOffset = 80;
-        const offset = progress * maxOffset;
-        const scale = 1 - (progress * 0.1); // Легкое уменьшение при скролле
-        const opacity = 1 - (progress * 0.2);
-        
-        if (sectionTitle) {
-            sectionTitle.style.transform = `translate3d(0, ${offset}px, 0) scale(${scale})`;
-            sectionTitle.style.opacity = opacity;
-            sectionTitle.style.willChange = 'transform, opacity';
+        // Упрощенная анимация для мобильных
+        if (isMobile()) {
+            const maxOffset = 50;
+            const offset = progress * maxOffset;
+            if (sectionTitle) {
+                sectionTitle.style.transform = `translate3d(0, ${offset}px, 0)`;
+                sectionTitle.style.opacity = 1 - (progress * 0.2);
+            }
+        } else {
+            const maxOffset = 80;
+            const offset = progress * maxOffset;
+            const scale = 1 - (progress * 0.1);
+            const opacity = 1 - (progress * 0.2);
+            
+            if (sectionTitle) {
+                sectionTitle.style.transform = `translate3d(0, ${offset}px, 0) scale(${scale})`;
+                sectionTitle.style.opacity = opacity;
+            }
         }
         
         scrollRafId = null;
@@ -292,39 +332,58 @@ function updateTitleAnimation() {
 // ============================================
 let touchStartX = 0;
 let touchEndX = 0;
+let touchStartY = 0;
 let isDragging = false;
 let touchStartTime = 0;
+let lastSwipeTime = 0;
 
 function handleTouchStart(e) {
-    if (!isMobile()) return;
-    touchStartX = e.touches[0].clientX;
-    touchStartTime = Date.now();
+    if (!isMobile() && !isTablet()) return;
+    
+    // Защита от слишком частых свайпов
+    const now = Date.now();
+    if (now - lastSwipeTime < 300) return;
+    
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = now;
     isDragging = true;
 }
 
 function handleTouchMove(e) {
-    if (!isDragging || !isMobile()) return;
-    // Предотвращаем скролл только если свайп горизонтальный
-    const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
-    const deltaY = Math.abs(e.touches[0].clientY - (e.touches[0].clientY || 0));
+    if (!isDragging || (!isMobile() && !isTablet())) return;
     
-    if (deltaX > deltaY && deltaX > 10) {
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartX);
+    const deltaY = Math.abs(touch.clientY - touchStartY);
+    
+    // Предотвращаем скролл только если свайп горизонтальный
+    if (deltaX > deltaY && deltaX > 15) {
         e.preventDefault();
     }
 }
 
 function handleTouchEnd(e) {
-    if (!isDragging || !isMobile()) return;
+    if (!isDragging || (!isMobile() && !isTablet())) return;
     
-    touchEndX = e.changedTouches[0].clientX;
+    const touch = e.changedTouches[0];
+    touchEndX = touch.clientX;
     const touchDuration = Date.now() - touchStartTime;
+    const diffY = Math.abs(touch.clientY - touchStartY);
     isDragging = false;
     
-    const swipeThreshold = 50;
-    const timeThreshold = 300; // Максимальное время для свайпа
+    const swipeThreshold = 40; // Уменьшенный порог для мобильных
+    const timeThreshold = isTablet() ? 400 : 350;
     const diff = touchStartX - touchEndX;
     
-    if (Math.abs(diff) > swipeThreshold && touchDuration < timeThreshold) {
+    // Проверяем что свайп горизонтальный
+    if (Math.abs(diff) > swipeThreshold && 
+        Math.abs(diff) > diffY && 
+        touchDuration < timeThreshold) {
+        
+        lastSwipeTime = Date.now();
+        
         if (diff > 0) {
             nextCard();
         } else {
@@ -334,13 +393,13 @@ function handleTouchEnd(e) {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ (МАКСИМАЛЬНО ОПТИМИЗИРОВАННАЯ)
+// ИНИЦИАЛИЗАЦИЯ
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
     // Кэшируем элементы DOM
     sectionTitle = document.querySelector('.section-title');
     pricingSection = document.querySelector('.pricing-section');
-    titleElement = sectionTitle; // Для кэширования центра заголовка
+    titleElement = sectionTitle;
     
     initCarousel();
     
@@ -367,12 +426,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { keyThrottle = false; }, 300);
     }, { passive: true });
     
-    // Свайп для мобильных (оптимизировано)
+    // Свайп для мобильных и планшетов
     requestAnimationFrame(() => {
         if (carouselContainer) {
             carouselContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
             carouselContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
             carouselContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            carouselContainer.addEventListener('touchcancel', () => {
+                isDragging = false;
+            }, { passive: true });
         }
     });
     
@@ -393,11 +455,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateCarousel();
                 resizeRafId = null;
             });
-        }, 150);
+        }, 200);
     }, { passive: true });
     
     // Оптимизированная анимация заголовка при скролле
-    window.addEventListener('scroll', updateTitleAnimation, { passive: true });
+    window.addEventListener('scroll', () => {
+        if (!isScrolling) {
+            isScrolling = true;
+            updateTitleAnimation();
+            setTimeout(() => { isScrolling = false; }, 100);
+        }
+    }, { passive: true });
     
     // Инициализация анимации заголовка
     updateTitleAnimation();
@@ -410,10 +478,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { passive: true });
     }
     
-    // Оптимизация: убираем will-change после анимации
+    // Убираем will-change после инициализации для оптимизации
     setTimeout(() => {
         if (carouselTrack) {
             carouselTrack.style.willChange = 'auto';
         }
-    }, 1000);
+    }, 2000);
 });
